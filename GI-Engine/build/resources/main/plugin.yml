@@ -1,0 +1,7 @@
+name: GI-Engine
+version: '1.0-SNAPSHOT'
+main: org.gi.gIEngine.GIEngine
+api-version: '1.21'
+commands:
+  cast:
+    description: "test"

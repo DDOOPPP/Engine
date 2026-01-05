@@ -1,0 +1,64 @@
+**설계 포인트:**
+IStatInstance
+| 구분 | 메서드 | 용도 |
+|------|--------|------|
+| **값 조회** | `getBaseValue()`, `getFinalValue()` | 기본값과 최종 계산값 |
+| **Modifier 관리** | `addModifier()`, `removeModifier()` | CRUD 작업 |
+| **조회 필터** | `getModifiersBySource()`, `getActiveModifiers()` | 조건부 조회 |
+| **계산 상세** | `getTotalFlat()`, `getTotalPercent()` | 디버깅/UI용 |
+| **캐싱** | `invalidateCache()` | 성능 최적화 |
+
+---
+
+**계산 플로우:**
+```
+getFinalValue() 호출
+    ↓
+캐시 유효? → 캐시 반환
+    ↓ (무효)
+getActiveModifiers() - 활성 수정자 필터링
+    ↓
+스택 처리 - isStackable(), getMaxStacks() 적용
+    ↓
+(Base + Σ FLAT) × (1 + Σ PERCENT) 계산
+    ↓
+Min/Max 클램핑
+    ↓
+캐시 저장 & 반환
+```
+
+
+**핵심 로직 요약:**
+StatInstance
+| 메서드 | 역할 |
+|--------|------|
+| `recalculate()` | (Base + Σ FLAT) × (1 + Σ PERCENT) 계산 |
+| `processStacks()` | 스택 규칙 적용 (source별 처리) |
+| `getActiveModifiers()` | 만료/비활성/조건 필터링 |
+| `invalidateCache()` | 변경 시 캐시 무효화 |
+
+---
+
+**계산 플로우:**
+```
+getFinalValue() 호출
+    ↓
+캐시 유효? → 바로 반환
+    ↓ (무효)
+getActiveModifiers()
+    - 만료된 것 제외
+    - 비활성 제외
+    - 조건 불충족 제외
+    ↓
+processStacks()
+    - stackable=false → 최고값만
+    - stackable=true → maxStacks 제한
+    ↓
+FLAT 합산, PERCENT 합산
+    ↓
+(Base + FLAT) × (1 + PERCENT)
+    ↓
+Min/Max 클램핑
+    ↓
+캐시 저장 & 반환
+```
