@@ -2,6 +2,8 @@ package org.gi.damage;
 
 import org.gi.stat.IStatHolder;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 public class DamageCalculator implements IDamageCalculator {
 
     /**
@@ -32,7 +34,7 @@ public class DamageCalculator implements IDamageCalculator {
 
         IStatHolder attacker = source.getAttacker();
 
-        // 회피 체크
+        // 1. 회피 체크
         if (source.canEvade() && attacker != null) {
             double accuracy = attacker.getStat(ACCURACY);
             double evasion = target.getStat(EVASION);
@@ -46,7 +48,7 @@ public class DamageCalculator implements IDamageCalculator {
                         .build();
             }
         }
-
+        // 2. 기본 데미지 계산
         double rawDamage = source.getBaseDamage();
 
         if (attacker != null){
@@ -73,7 +75,7 @@ public class DamageCalculator implements IDamageCalculator {
 
         result.critical(isCritical);
 
-// ========== 4. 방어력 적용 ==========
+        // 4. 방어력 적용
         double defense = 0;
         double penetration = 0;
         double mitigatedDamage = 0;
@@ -96,7 +98,7 @@ public class DamageCalculator implements IDamageCalculator {
 
         result.mitigatedDamage(mitigatedDamage);
 
-        // ========== 5. 블록 체크 ==========
+        // 5. 블록 체크
         boolean isBlocked = false;
         double blockedDamage = 0;
 
@@ -114,12 +116,13 @@ public class DamageCalculator implements IDamageCalculator {
         result.blocked(isBlocked);
         result.blockedDamage(blockedDamage);
 
-        // ========== 6. 최종 데미지 ==========
+        // 6. 최종 데미지
         double finalDamage = Math.max(0, rawDamage);
         result.finalDamage(finalDamage);
 
         // 결과 타입 결정
         IDamageResult.ResultType resultType;
+
         if (isBlocked && finalDamage <= 0) {
             resultType = IDamageResult.ResultType.FULL_BLOCKED;
         } else if (isBlocked) {
@@ -137,21 +140,38 @@ public class DamageCalculator implements IDamageCalculator {
 
     @Override
     public double calculateMitigation(double damage, double defense, double penetration) {
-        return 0;
+        //관통력 적용
+        double effectiveDefense = Math.max(0,defense - penetration);
+
+        //방어력 감소 공식: damage * (1-defense / (defense + 방어력 상수)
+        double reduction = effectiveDefense / (effectiveDefense + DEFENSE_CONSTANT);
+
+        //최소 데미지 보장
+        reduction = Math.min(reduction, 1 - MIN_DAMAGE_RATIO);
+
+        return damage * (1-reduction);
     }
 
     @Override
     public boolean rollCritical(double criticalChance) {
-        return false;
+        return roll(criticalChance);
     }
 
     @Override
     public boolean rollEvasion(double accuracy, double evasion) {
-        return false;
+        // 회피 공식: evasion - (accuracy - 1)
+        // 확률 1.0이면 회피 그대로, 1.2면 회피 - 0.2
+        double effectiveEvasion = Math.max(0, evasion - (accuracy - 1));
+
+        return roll(effectiveEvasion);
     }
 
     @Override
     public boolean rollBlock(double blockChance) {
-        return false;
+        return roll(blockChance);
+    }
+
+    private boolean roll(double chance){
+        return ThreadLocalRandom.current().nextDouble() < chance;
     }
 }

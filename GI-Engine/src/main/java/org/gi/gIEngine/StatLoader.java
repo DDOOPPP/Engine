@@ -54,7 +54,7 @@ public class StatLoader {
             }
 
             try{
-                IStat stat = parseStat(section,key);
+                IStat stat = parseStat(statSection,key);
 
                 if (registry.register(stat)) {
                     count++;
@@ -98,8 +98,7 @@ public class StatLoader {
                 .category(category)
                 .scalingType(scalingType)
                 .defaultValue(defaultValue)
-                .minValue(minValue)
-                .maxValue(maxValue)
+                .range(minValue,maxValue)
                 .percentageBased(percentageBased)
                 .build();
     }

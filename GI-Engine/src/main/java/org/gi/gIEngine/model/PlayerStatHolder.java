@@ -37,6 +37,11 @@ public class PlayerStatHolder extends StatHolder {
     }
 
     @Override
+    public void setBase(String statId, double value) {
+        getOrCreateIStatInstance(statId).setBase(value);
+    }
+
+    @Override
     public void clearAllModifiers() {
 
     }

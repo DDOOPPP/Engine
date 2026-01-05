@@ -114,6 +114,7 @@ public class StatBuilder {
      */
     public IStat build() {
         validate();
+        range(minValue,maxValue);
         return new IStatImpl(
                 id,
                 displayName,

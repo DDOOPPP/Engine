@@ -3,5 +3,7 @@ version: '1.0-SNAPSHOT'
 main: org.gi.gIEngine.GIEngine
 api-version: '1.21'
 commands:
-  cast:
-    description: "test"
+  stat:
+    description: "stat Command"
+  damage:
+    description: "Damage Command"
