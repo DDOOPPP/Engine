@@ -18,6 +18,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static io.lumine.mythic.core.skills.stats.Stats.DEFENSE;
+
 public class StatCommand {
     private PlayerStatManager statManager;
     private IStatRegistry statRegistry;
@@ -267,10 +269,10 @@ public class StatCommand {
 
     private ChatColor getCategoryColor(StatCategory category){
         switch (category){
-            case OFFENSE -> {
+            case OFFENSIVE -> {
                 return ChatColor.RED;
             }
-            case DEFENSE -> {
+            case DEFENSIVE -> {
                 return ChatColor.BLUE;
             }
             default -> {
@@ -299,7 +301,7 @@ public class StatCommand {
                     completions.add("all");
                 }
                 completions.addAll(statRegistry.getAll().stream()
-                        .map(IStat::getId)
+                        .map(IStat::getID)
                         .toList());
             }
         } else if (args.length == 3 && args[0].equalsIgnoreCase("add")){

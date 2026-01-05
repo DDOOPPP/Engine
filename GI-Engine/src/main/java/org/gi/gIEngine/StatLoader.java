@@ -81,10 +81,10 @@ public class StatLoader {
     }
 
     public IStat parseStat(ConfigurationSection section,String statId) {
-        String displayName = section.getString(" display-name",statId);
-        List<String> description = section.getStringList(" descriptions");
-        StatCategory category = Util.parseEnum(StatCategory.class, section.getString(" category","MISC").toUpperCase());
-        ScalingType scalingType = Util.parseEnum(ScalingType.class, section.getString(" scaling-type","INTEGER").toUpperCase());
+        String displayName = section.getString("display-name",statId);
+        List<String> description = section.getStringList("descriptions");
+        StatCategory category = Util.parseEnum(StatCategory.class, section.getString("category","MISC").toUpperCase());
+        ScalingType scalingType = Util.parseEnum(ScalingType.class, section.getString("scaling-type","INTEGER").toUpperCase());
 
         double defaultValue = section.getDouble("default-value", 0);
         double minValue = section.getDouble("min-value", Double.MIN_VALUE);

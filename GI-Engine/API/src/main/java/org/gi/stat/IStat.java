@@ -11,8 +11,6 @@ public interface IStat {
      * */
     String getID();
 
-    String getId();
-
     /**
      * @return 실제로 보이는 이름
      * */

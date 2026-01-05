@@ -92,7 +92,7 @@ public class StatInstance implements IStatInstance{
         if (!modifier.getStatID().equalsIgnoreCase(stat.getID())){
             throw new IllegalArgumentException(
                     "Modifier statId '" + modifier.getStatID() +
-                            "' does not match stat '" + stat.getId() + "'"
+                            "' does not match stat '" + stat.getID() + "'"
             );
         }
 
@@ -194,7 +194,7 @@ public class StatInstance implements IStatInstance{
 
     @Override
     public Collection<IStatModifier> getAllModifiers() {
-        return List.of();
+        return Collections.unmodifiableCollection(modifiers.values());
     }
 
     //미사용
@@ -236,8 +236,8 @@ public class StatInstance implements IStatInstance{
 
         double finalValue = (baseValue + cacheTotalFlat) * (1 + cacheTotalPercent);
 
-        finalValue = Math.max(stat.getMaxValue(),finalValue);
-        finalValue = Math.min(stat.getMinValue(),finalValue);
+        finalValue = Math.max(stat.getMinValue(), finalValue);
+        finalValue = Math.min(stat.getMaxValue(), finalValue);
 
         cacheFinalValue = finalValue;
         cacheValid = true;

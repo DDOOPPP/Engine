@@ -164,9 +164,6 @@ public class StatBuilder {
         }
 
         @Override
-        public String getId() { return id; }
-
-        @Override
         public String getDisplayName() { return displayName; }
 
         @Override

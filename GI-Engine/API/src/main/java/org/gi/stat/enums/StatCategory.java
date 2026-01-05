@@ -1,5 +1,5 @@
 package org.gi.stat.enums;
 
 public enum StatCategory {
-    OFFENSE, DEFENSE, UTILITY, MISC
+    OFFENSIVE, DEFENSIVE, UTILITY, MISC
 }

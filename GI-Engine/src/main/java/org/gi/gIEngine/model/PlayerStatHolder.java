@@ -1,6 +1,7 @@
 package org.gi.gIEngine.model;
 
 import org.bukkit.entity.Player;
+import org.gi.stat.IStatInstance;
 import org.gi.stat.IStatRegistry;
 import org.gi.stat.StatHolder;
 import org.gi.stat.enums.HolderType;
@@ -43,6 +44,8 @@ public class PlayerStatHolder extends StatHolder {
 
     @Override
     public void clearAllModifiers() {
-
+        for (IStatInstance instance : getAllIStatInstances()) {
+            instance.clearModifiers();
+        }
     }
 }
