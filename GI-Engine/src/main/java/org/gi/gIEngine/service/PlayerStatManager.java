@@ -1,35 +1,74 @@
 package org.gi.gIEngine.service;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.gi.gIEngine.GIEngine;
 import org.gi.gIEngine.model.PlayerStatHolder;
+import org.gi.stat.IStatInstance;
+import org.gi.stat.IStatModifier;
 import org.gi.stat.IStatRegistry;
+import org.gi.storage.IPlayerDataStorage;
+import org.gi.storage.PlayerStatData;
 
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class PlayerStatManager {
     private final IStatRegistry statRegistry;
     private final Map<UUID, PlayerStatHolder> holders = new ConcurrentHashMap<>();
-
+    private final Logger logger;
+    private final IPlayerDataStorage storage;
+    private static final String PERMANENT_PREFIX = "permanent:";
     public PlayerStatManager(IStatRegistry statRegistry){
         this.statRegistry = statRegistry;
+        logger = Bukkit.getLogger();
+        storage = GIEngine.getInstance().getStorage();
     }
 
     public PlayerStatHolder load(Player player){
-        return holders.computeIfAbsent(player.getUniqueId(), uuid -> {
-            PlayerStatHolder holder = new PlayerStatHolder(statRegistry, player);
-            holder.initializeAllStats();
+        UUID uuid = player.getUniqueId();
 
-            return holder;
-        });
+        PlayerStatHolder holder = new PlayerStatHolder(statRegistry, player);
+        holder.initializeAllStats();
+
+        if (storage != null){
+            storage.load(uuid).thenAccept(optionalData -> {
+                optionalData.ifPresent(data -> applyLoadedData(holder, data));
+            }).exceptionally(e -> {
+                if (logger != null) {
+                    logger.warning("Failed to load player data: " + e.getMessage());
+                }
+                return null;
+            });
+        }
+        holders.put(uuid, holder);
+        return holder;
+    }
+
+    private void applyLoadedData(PlayerStatHolder holder,PlayerStatData data){
+        //base값 적용
+        for (Map.Entry<String,Double> entry : data.getBaseValues().entrySet()){
+            holder.setBase(entry.getKey(), entry.getValue());
+        }
+
+        //modifier 적용
+        if (data.getPermanentModifiers() != null){
+            for (IStatModifier modifier : data.getPermanentModifiers()){
+                holder.addModifier(modifier);
+            }
+        }
     }
 
     public void unload(Player player){
+        UUID uuid = player.getUniqueId();
         PlayerStatHolder holder = holders.remove(player.getUniqueId());
 
         if (holder != null){
+            if (storage != null){
+                save(holder);
+            }
             holder.clearAllStats();
         }
     }
@@ -54,7 +93,8 @@ public class PlayerStatManager {
      * 모든 플레이어 언로드 (서버 종료 시점 호출)
      * */
     public void unloadAll(){
-        for (PlayerStatHolder holder : holders.values()){
+        saveAll();
+        for (PlayerStatHolder holder : holders.values()) {
             holder.clearAllStats();
         }
         holders.clear();
@@ -62,5 +102,41 @@ public class PlayerStatManager {
 
     public int getLoadedPlayerCount(){
         return holders.size();
+    }
+
+    public void save(PlayerStatHolder holder){
+        if (storage == null){
+            logger.warning("No storage available");
+            return;
+        }
+
+        Map<String,Double> baseValues = new HashMap<>();
+        for (IStatInstance instance : holder.getAllIStatInstances()){
+            baseValues.put(instance.getStat().getID(), instance.getBase());
+        }
+
+        List<IStatModifier> permanentModifiers = holder.getAllIStatInstances().stream()
+                .flatMap(instance -> instance.getActiveModifiers().stream())
+                .filter(m -> m.getSource().startsWith(PERMANENT_PREFIX))
+                .collect(Collectors.toList());
+
+        PlayerStatData data = PlayerStatData.builder()
+                .playerUUID(holder.getUUID())
+                .baseValues(baseValues)
+                .permanentModifiers(permanentModifiers)
+                .build();
+
+        storage.save(data).exceptionally(e -> {
+            if (logger != null) {
+                logger.warning("Failed to save player data: " + e.getMessage());
+            }
+            return null;
+        });
+    }
+
+    public void saveAll() {
+        for (PlayerStatHolder holder : holders.values()) {
+            save(holder);
+        }
     }
 }

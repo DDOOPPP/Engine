@@ -1,0 +1,22 @@
+#DB 설정
+storage:
+  #SQLITE, MYSQL
+  type: "MYSQL"
+  auto-save-interval: 300 #자동저장 주기 0보다 작은경우 미사용
+  debug: true
+  sqlite:
+    file: 'player_data.db'
+
+  mysql:
+    host: 'localhost'
+    port: 3306
+    database: 'minecraft'
+    user: 'root'
+    password: 'password'
+
+    connection-timeout: 2000
+    idle-timeout: 0
+    max-life-time: 0
+    validation-timeout: 500
+    keep-alive-timeout: 30000
+    max-pool-size: 5

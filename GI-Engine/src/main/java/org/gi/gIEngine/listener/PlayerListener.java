@@ -1,6 +1,7 @@
 package org.gi.gIEngine.listener;
 
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -13,13 +14,15 @@ public class PlayerListener implements Listener {
         this.statManager = statManager;
     }
 
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event){
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        // 가장 먼저 로드 (다른 플러그인보다 먼저)
         statManager.load(event.getPlayer());
     }
 
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event){
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        // 가장 나중에 언로드 (저장 포함)
         statManager.unload(event.getPlayer());
     }
 }
