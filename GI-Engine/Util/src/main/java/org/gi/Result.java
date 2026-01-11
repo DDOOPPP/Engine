@@ -11,8 +11,8 @@ public class Result {
 
     public static Result SUCCESS = new Result(1, "Success");
     public static Result FAIL = new Result(-1, "Fail");
-    public static Result CONNECTED = new Result(1, "Connected");
-    public static Result DISCONNECTED = new Result(1, "Disconnected");
+    public static Result CONNECTED = new Result(100, "Connected");
+    public static Result DISCONNECTED = new Result(101, "Disconnected");
 
     public static Result NULL = new Result(-9999, "Null");
     public static Result EMPTY = new Result(-9999, "Empty");
@@ -42,7 +42,7 @@ public class Result {
     }
 
     public boolean isSuccess(){
-        return this.equals(SUCCESS) || this.code == 100;
+        return this.equals(SUCCESS) || this.code == 1;
     }
 
     public boolean isConnected(){

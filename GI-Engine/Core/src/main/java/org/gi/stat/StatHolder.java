@@ -95,7 +95,7 @@ public abstract class StatHolder implements IStatHolder{
 
     @Override
     public void addStatChangeListener(IStatChangeListener listener){
-        if (listener != null || !statChangeListeners.contains(listener)){
+        if (listener != null && !statChangeListeners.contains(listener)){
             statChangeListeners.add(listener);
         }
     }

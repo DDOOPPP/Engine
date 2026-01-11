@@ -2,9 +2,7 @@ package org.gi.storage;
 
 import org.gi.stat.IStatModifier;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class PlayerStatData {
     private final UUID playerUUID;
@@ -39,8 +37,8 @@ public class PlayerStatData {
 
     public static class Builder {
         private UUID playerUUID;
-        private Map<String,Double> baseValues;
-        private Collection<IStatModifier> permanentModifiers;
+        private Map<String,Double> baseValues = new HashMap<>();
+        private Collection<IStatModifier> permanentModifiers = new ArrayList<>();
 
         public Builder playerUUID(UUID playerUUID) {
             this.playerUUID = playerUUID;

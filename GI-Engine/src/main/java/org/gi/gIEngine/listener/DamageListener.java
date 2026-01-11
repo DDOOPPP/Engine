@@ -29,7 +29,7 @@ public class DamageListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event){
         Entity targetEntity = event.getEntity();
-        Entity attackerEntity = event.getDamager();
+        Entity attackerEntity = getActualDamager(event);
 
         // PVP
         if (!(targetEntity instanceof Player player)){
@@ -183,5 +183,17 @@ public class DamageListener implements Listener {
         sb.append(")");
 
         return sb.toString();
+    }
+
+    private Entity getActualDamager(EntityDamageByEntityEvent event) {
+        Entity damager = event.getDamager();
+
+        if (damager instanceof Projectile projectile) {
+            if (projectile.getShooter() instanceof Entity shooter) {
+                return shooter;
+            }
+        }
+
+        return damager;
     }
 }

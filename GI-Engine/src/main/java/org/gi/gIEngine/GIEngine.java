@@ -37,7 +37,7 @@ public final class GIEngine extends JavaPlugin {
         config = new GIConfig(new File(plugin.getDataFolder(), "config.yml"));
 
         statRegistry = new StatRegistry();
-        playerStatManager = new PlayerStatManager(statRegistry);
+
         statLoader = new StatLoader(plugin,statRegistry);
         damageCalculator = new DamageCalculator();
 
@@ -47,6 +47,9 @@ public final class GIEngine extends JavaPlugin {
             return;
         }
         storage = initializeStorage();
+        storage.initialize();
+
+        playerStatManager = new PlayerStatManager(statRegistry);
         getLogger().info(statLoader.load().getMessage());
 
         getServer().getPluginManager().registerEvents(

@@ -155,3 +155,57 @@ stats:
     min-value: 0
     max-value: 0.5
     percentage-based: true
+  accuracy:
+    display-name: "명중률"
+    descriptions:
+      - "공격 명중 확률 (1.0 = 100%)"
+    category: OFFENSIVE
+    scaling-type: DECIMAL
+    default-value: 1.0
+    min-value: 0
+    max-value: 2.0
+    percentage-based: true
+
+  armor_penetration:
+    display-name: "방어구 관통"
+    descriptions:
+      - "상대 방어력 무시 수치"
+    category: OFFENSIVE
+    scaling-type: INTEGER
+    default-value: 0
+    min-value: 0
+    max-value: 99999
+    percentage-based: false
+
+  magic_penetration:
+    display-name: "마법 관통"
+    descriptions:
+      - "상대 마법 저항력 무시 수치"
+    category: OFFENSIVE
+    scaling-type: INTEGER
+    default-value: 0
+    min-value: 0
+    max-value: 99999
+    percentage-based: false
+
+  block_chance:
+    display-name: "블록 확률"
+    descriptions:
+      - "공격을 블록할 확률"
+    category: DEFENSIVE
+    scaling-type: DECIMAL
+    default-value: 0
+    min-value: 0
+    max-value: 0.75
+    percentage-based: true
+
+  block_amount:
+    display-name: "블록량"
+    descriptions:
+      - "블록 시 감소시키는 피해량"
+    category: DEFENSIVE
+    scaling-type: INTEGER
+    default-value: 0
+    min-value: 0
+    max-value: 99999
+    percentage-based: false

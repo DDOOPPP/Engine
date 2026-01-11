@@ -24,9 +24,6 @@ public class MySQLStorage extends AbstractStorage{
             logger.severe("check config.yml File");
             return null;
         }
-
-        dataSource = new HikariDataSource();
-
         HikariConfig config = new HikariConfig();
 
         config.setJdbcUrl(setting.getURL());
