@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.logging.Logger;
 
 public class MySQLStorage extends AbstractStorage{
@@ -42,8 +43,10 @@ public class MySQLStorage extends AbstractStorage{
         dataSource = new HikariDataSource(config);
         connection = dataSource.getConnection();
 
-        return connection;
+        return dataSource.getConnection();
     }
+
+
 
     @Override
     protected String getCreateStatsTableSQL() {
@@ -75,6 +78,22 @@ public class MySQLStorage extends AbstractStorage{
                 INDEX idx_player (player_uuid)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """;
+    }
+
+    @Override
+    public void shutdown() {
+        try{
+            if (connection != null && !connection.isClosed()){
+                connection.close();
+                dataSource.close();
+            }
+        } catch (SQLException e) {
+            logger.warning("Error closing connection: " + e.getMessage());
+        }
+    }
+
+    public Connection getConnection() throws SQLException {
+        return dataSource.getConnection();
     }
 
     @Override

@@ -1,10 +1,12 @@
 package org.gi.storage;
 
+import com.zaxxer.hikari.HikariDataSource;
 import org.gi.Result;
 import org.gi.builder.StatModifierBuilder;
 import org.gi.stat.IStatModifier;
 import org.gi.stat.enums.ModifierType;
 
+import javax.sql.DataSource;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;

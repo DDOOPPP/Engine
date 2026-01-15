@@ -21,10 +21,16 @@ public class PlayerStatManager {
     private final Logger logger;
     private final IPlayerDataStorage storage;
     private static final String PERMANENT_PREFIX = "permanent:";
+    private final Set<UUID> loadingPlayers = ConcurrentHashMap.newKeySet();
+
     public PlayerStatManager(IStatRegistry statRegistry){
         this.statRegistry = statRegistry;
         logger = Bukkit.getLogger();
         storage = GIEngine.getInstance().getStorage();
+    }
+
+    public boolean isLoading(UUID playerId){
+        return loadingPlayers.contains(playerId);
     }
 
     public PlayerStatHolder load(Player player){
@@ -33,16 +39,16 @@ public class PlayerStatManager {
         PlayerStatHolder holder = new PlayerStatHolder(statRegistry, player);
         holder.initializeAllStats();
 
-        if (storage != null){
-            storage.load(uuid).thenAccept(optionalData -> {
-                optionalData.ifPresent(data -> applyLoadedData(holder, data));
-            }).exceptionally(e -> {
-                if (logger != null) {
-                    logger.warning("Failed to load player data: " + e.getMessage());
-                }
-                return null;
-            });
+        if (storage != null && storage.isConnected()){
+            try {
+                storage.load(uuid)
+                        .thenAccept(opt -> opt.ifPresent(data -> applyLoadedData(holder, data)))
+                        .join();
+            } catch (Exception e) {
+                logger.warning("Failed to load player data: " + e.getMessage());
+            }
         }
+
         holders.put(uuid, holder);
         return holder;
     }
