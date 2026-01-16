@@ -33,24 +33,49 @@ public class PlayerStatManager {
         return loadingPlayers.contains(playerId);
     }
 
-    public PlayerStatHolder load(Player player){
+    // public PlayerStatHolder load(Player player){
+    //     UUID uuid = player.getUniqueId();
+
+    //     PlayerStatHolder holder = new PlayerStatHolder(statRegistry, player);
+    //     holder.initializeAllStats();
+
+    //     if (storage != null && storage.isConnected()){
+    //         try {
+    //             storage.load(uuid)
+    //                     .thenAccept(opt -> opt.ifPresent(data -> applyLoadedData(holder, data)))
+    //                     .join();
+    //         } catch (Exception e) {
+    //             logger.warning("Failed to load player data: " + e.getMessage());
+    //         }
+    //     }
+
+    //     holders.put(uuid, holder);
+    //     return holder;
+    // }
+
+    public void load (Player player) {
         UUID uuid = player.getUniqueId();
 
-        PlayerStatHolder holder = new PlayerStatHolder(statRegistry, player);
-        holder.initializeAllStats();
+        loadingPlayers.add(uuid);
 
-        if (storage != null && storage.isConnected()){
-            try {
-                storage.load(uuid)
-                        .thenAccept(opt -> opt.ifPresent(data -> applyLoadedData(holder, data)))
-                        .join();
-            } catch (Exception e) {
-                logger.warning("Failed to load player data: " + e.getMessage());
-            }
-        }
+        PlayerStatHolder holder = new PlayerStatHolder(statRegistry, player);
+        holder.initializeAllStats();;
 
         holders.put(uuid, holder);
-        return holder;
+
+        if (storage != null && storage.isConnected()) {
+            storage.load(uuid).thenAccept(opt -> {
+                opt.ifPresent(data -> applyLoadedData(holder, data));
+                loadingPlayers.remove(uuid);
+                logger.info("Loaded player data: "+player.getName());
+            }).exceptionally(e -> {
+                logger.warning("Failed to load:"  +e.getMessage());
+                loadingPlayers.remove(uuid);
+                return null;
+            });
+        }else{
+            loadingPlayers.remove(uuid);
+        }
     }
 
     private void applyLoadedData(PlayerStatHolder holder,PlayerStatData data){
