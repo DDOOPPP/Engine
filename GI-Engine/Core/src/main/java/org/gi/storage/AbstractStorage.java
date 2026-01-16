@@ -1,23 +1,20 @@
 package org.gi.storage;
 
-import com.zaxxer.hikari.HikariDataSource;
 import org.gi.Result;
 import org.gi.builder.StatModifierBuilder;
 import org.gi.stat.IStatModifier;
 import org.gi.stat.enums.ModifierType;
-
-import javax.sql.DataSource;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 public abstract class AbstractStorage implements IPlayerDataStorage{
     protected final Logger logger;
     protected final ExecutorService executor;
-    protected Connection connection;
 
     protected static final String PERMANENT_PREFIX = "permanent:";
 
@@ -34,8 +31,6 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
     @Override
     public Result initialize(){
         try{
-            connection = createConnection();
-
             createTables();
             logger.info("Storage initialized: " + getType());
             return Result.SUCCESS;
@@ -45,30 +40,32 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
         }
     }
 
+    public abstract Connection getConnection() throws SQLException;
+
     private void createTables() throws SQLException{
-        try(Statement stmt = connection.createStatement()){
+        try(Statement stmt = getConnection().createStatement()){
             stmt.execute(getCreateStatsTableSQL());
             stmt.execute(getCreateModifiersTableSQL());
         }
     }
 
     @Override
-    public void shutdown(){
+    public void shutdown() {
         executor.shutdown();
-
-        try{
-            if (connection != null && !connection.isClosed()){
-                connection.close();
+        try {
+            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
             }
-        } catch (SQLException e) {
-            logger.warning("Error closing connection: " + e.getMessage());
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 
     @Override
     public boolean isConnected(){
         try{
-            return connection != null && !connection.isClosed();
+            return getConnection() != null && !getConnection().isClosed();
         }catch (SQLException e){
             return false;
         }
@@ -91,7 +88,7 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
     public void saveBaseValues(PlayerStatData data) throws SQLException{
         String sql = "REPLACE INTO player_stats (player_uuid, stat_id, base_value) VALUES (?,?,?)";
 
-        try(PreparedStatement stmt = connection.prepareStatement(sql)){
+        try(PreparedStatement stmt = getConnection().prepareStatement(sql)){
             for(Map.Entry<String,Double> entry : data.getBaseValues().entrySet()){
                 stmt.setString(1, data.getPlayerUUID().toString());
                 stmt.setString(2, entry.getKey());
@@ -106,7 +103,7 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
     private void savePermanentModifiers(PlayerStatData data) throws SQLException{
         String deleteSQL = "DELETE FROM player_modifiers  WHERE player_uuid = ?";
 
-        try(PreparedStatement stmt = connection.prepareStatement(deleteSQL)){
+        try(PreparedStatement stmt = getConnection().prepareStatement(deleteSQL)){
             stmt.setString(1, data.getPlayerUUID().toString());
             stmt.executeUpdate();
         }
@@ -121,7 +118,7 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
-        try(PreparedStatement stmt = connection.prepareStatement(insertSQL)){
+        try(PreparedStatement stmt = getConnection().prepareStatement(insertSQL)){
             for (IStatModifier modifier : data.getPermanentModifiers()){
                 if (!modifier.getSource().startsWith(PERMANENT_PREFIX)){
                     continue;
@@ -173,7 +170,7 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
 
         String sql = "SELECT stat_id, base_value FROM player_stats WHERE player_uuid = ?";
 
-        try(PreparedStatement stmt = connection.prepareStatement(sql)){
+        try(PreparedStatement stmt = getConnection().prepareStatement(sql)){
             stmt.setString(1, playerUUID.toString());
 
             try(ResultSet rs = stmt.executeQuery()){
@@ -190,7 +187,7 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
 
         String sql = "SELECT * FROM player_modifiers WHERE player_uuid = ?";
 
-        try(PreparedStatement stmt = connection.prepareStatement(sql)){
+        try(PreparedStatement stmt = getConnection().prepareStatement(sql)){
             stmt.setString(1, playerUUID.toString());
 
             try(ResultSet rs = stmt.executeQuery()){
@@ -222,12 +219,12 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
                 String deleteStats = "DELETE FROM player_stats WHERE player_uuid = ?";
                 String deleteModifiers = "DELETE FROM player_modifiers WHERE player_uuid = ?";
 
-                try(PreparedStatement statement = connection.prepareStatement(deleteStats)){
+                try(PreparedStatement statement = getConnection().prepareStatement(deleteStats)){
                     statement.setString(1, playerUUID.toString());
                     statement.executeUpdate();
                 }
 
-                try(PreparedStatement statement = connection.prepareStatement(deleteModifiers)){
+                try(PreparedStatement statement = getConnection().prepareStatement(deleteModifiers)){
                     statement.setString(1, playerUUID.toString());
                     statement.executeUpdate();
                 }
@@ -245,7 +242,7 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
         return CompletableFuture.supplyAsync(() -> {
             String sql = "SELECT 1 FROM player_stats WHERE player_uuid = ? LIMIT 1";
 
-            try(PreparedStatement statement = connection.prepareStatement(sql)){
+            try(PreparedStatement statement = getConnection().prepareStatement(sql)){
                 statement.setString(1, playerUUID.toString());
 
                 try(ResultSet rs = statement.executeQuery()){
