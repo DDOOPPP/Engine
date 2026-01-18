@@ -18,9 +18,15 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
 
     protected static final String PERMANENT_PREFIX = "permanent:";
 
-    public AbstractStorage(Logger logger) {
+    protected AbstractStorage(Logger logger, int threadPoolSize) {
         this.logger = logger;
-        this.executor = Executors.newFixedThreadPool(2);
+        this.executor = Executors.newFixedThreadPool(
+                Math.max(1, threadPoolSize)
+        );
+    }
+
+    protected AbstractStorage(Logger logger) {
+        this(logger, 2);
     }
 
     protected abstract Connection createConnection() throws SQLException;
@@ -43,7 +49,8 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
     public abstract Connection getConnection() throws SQLException;
 
     private void createTables() throws SQLException{
-        try(Statement stmt = getConnection().createStatement()){
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement()) {
             stmt.execute(getCreateStatsTableSQL());
             stmt.execute(getCreateModifiersTableSQL());
         }
@@ -63,13 +70,7 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
     }
 
     @Override
-    public boolean isConnected(){
-        try{
-            return getConnection() != null && !getConnection().isClosed();
-        }catch (SQLException e){
-            return false;
-        }
-    }
+    public abstract boolean isConnected();
 
     @Override
     public CompletableFuture<Result> save(PlayerStatData data){
@@ -88,22 +89,23 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
     public void saveBaseValues(PlayerStatData data) throws SQLException{
         String sql = "REPLACE INTO player_stats (player_uuid, stat_id, base_value) VALUES (?,?,?)";
 
-        try(PreparedStatement stmt = getConnection().prepareStatement(sql)){
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
             for(Map.Entry<String,Double> entry : data.getBaseValues().entrySet()){
                 stmt.setString(1, data.getPlayerUUID().toString());
                 stmt.setString(2, entry.getKey());
                 stmt.setDouble(3, entry.getValue());
                 stmt.addBatch();
             }
-
             stmt.executeBatch();
         }
     }
     //기존의 영구 Modifier 삭제
     private void savePermanentModifiers(PlayerStatData data) throws SQLException{
-        String deleteSQL = "DELETE FROM player_modifiers  WHERE player_uuid = ?";
+        String deleteSQL = "DELETE FROM player_modifiers WHERE player_uuid = ?";
 
-        try(PreparedStatement stmt = getConnection().prepareStatement(deleteSQL)){
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(deleteSQL)) {
             stmt.setString(1, data.getPlayerUUID().toString());
             stmt.executeUpdate();
         }
@@ -113,22 +115,22 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
         }
 
         String insertSQL = """
-                INSERT INTO player_modifiers 
-                (player_uuid, modifier_uuid, stat_id, source, display_name, type, value, priority, stackable, max_stacks) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """;
+              INSERT INTO player_modifiers
+              (player_uuid, modifier_uuid, stat_id, source, display_name, type, value, priority, stackable, max_stacks)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              """;
 
-        try(PreparedStatement stmt = getConnection().prepareStatement(insertSQL)){
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(insertSQL)) {
             for (IStatModifier modifier : data.getPermanentModifiers()){
                 if (!modifier.getSource().startsWith(PERMANENT_PREFIX)){
                     continue;
                 }
-
                 stmt.setString(1, data.getPlayerUUID().toString());
                 stmt.setString(2, modifier.getID().toString());
                 stmt.setString(3, modifier.getStatID());
                 stmt.setString(4, modifier.getSource());
-                stmt.setString(5, modifier.getSource()); // displayName 없으면 source 사용
+                stmt.setString(5, modifier.getSource());
                 stmt.setString(6, modifier.getType().name());
                 stmt.setDouble(7, modifier.getValue());
                 stmt.setInt(8, modifier.getPriority());
@@ -170,7 +172,8 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
 
         String sql = "SELECT stat_id, base_value FROM player_stats WHERE player_uuid = ?";
 
-        try(PreparedStatement stmt = getConnection().prepareStatement(sql)){
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, playerUUID.toString());
 
             try(ResultSet rs = stmt.executeQuery()){
@@ -182,12 +185,13 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
         return values;
     }
 
+
     private List<IStatModifier> loadPermanentModifiers(UUID playerUUID) throws SQLException{
         List<IStatModifier> modifiers = new ArrayList<>();
-
         String sql = "SELECT * FROM player_modifiers WHERE player_uuid = ?";
 
-        try(PreparedStatement stmt = getConnection().prepareStatement(sql)){
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, playerUUID.toString());
 
             try(ResultSet rs = stmt.executeQuery()){
@@ -204,7 +208,6 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
                             .maxStacks(rs.getInt("max_stacks"))
                             .permanent()
                             .build();
-
                     modifiers.add(modifier);
                 }
             }
@@ -213,18 +216,20 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
     }
 
     @Override
-    public CompletableFuture<Result> delete (UUID playerUUID){
+    public CompletableFuture<Result> delete(UUID playerUUID){
         return CompletableFuture.supplyAsync(() -> {
             try{
                 String deleteStats = "DELETE FROM player_stats WHERE player_uuid = ?";
                 String deleteModifiers = "DELETE FROM player_modifiers WHERE player_uuid = ?";
 
-                try(PreparedStatement statement = getConnection().prepareStatement(deleteStats)){
+                try (Connection conn = getConnection();
+                     PreparedStatement statement = conn.prepareStatement(deleteStats)) {
                     statement.setString(1, playerUUID.toString());
                     statement.executeUpdate();
                 }
 
-                try(PreparedStatement statement = getConnection().prepareStatement(deleteModifiers)){
+                try (Connection conn = getConnection();
+                     PreparedStatement statement = conn.prepareStatement(deleteModifiers)) {
                     statement.setString(1, playerUUID.toString());
                     statement.executeUpdate();
                 }
@@ -234,7 +239,7 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
                 logger.severe("Failed to delete stats: " + e.getMessage());
                 return Result.Exception(e);
             }
-        });
+        }, executor);
     }
 
     @Override
@@ -242,7 +247,8 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
         return CompletableFuture.supplyAsync(() -> {
             String sql = "SELECT 1 FROM player_stats WHERE player_uuid = ? LIMIT 1";
 
-            try(PreparedStatement statement = getConnection().prepareStatement(sql)){
+            try (Connection conn = getConnection();
+                 PreparedStatement statement = conn.prepareStatement(sql)) {
                 statement.setString(1, playerUUID.toString());
 
                 try(ResultSet rs = statement.executeQuery()){
@@ -252,6 +258,7 @@ public abstract class AbstractStorage implements IPlayerDataStorage{
                 logger.severe("Failed to find stats: " + e.getMessage());
                 return false;
             }
-        });
+        }, executor);
     }
+
 }

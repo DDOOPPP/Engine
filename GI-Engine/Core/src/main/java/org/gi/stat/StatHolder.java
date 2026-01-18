@@ -6,9 +6,11 @@ import org.gi.stat.enums.ScalingType;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 
 public abstract class StatHolder implements IStatHolder{
     protected final IStatRegistry statRegistry;
+    private static final Logger logger = Logger.getLogger(StatHolder.class.getName());
     private final Map<String, IStatInstance> statInstances = new ConcurrentHashMap<>();
     private final List<IStatChangeListener> statChangeListeners = new ArrayList<>();
 
@@ -110,7 +112,7 @@ public abstract class StatHolder implements IStatHolder{
             try{
                 listener.onStatChange(this, statId, oldValue, newValue);
             }catch (Exception e){
-                e.printStackTrace();
+                logger.warning("StatChangeListener error: " + e.getMessage());
             }
         }
     }

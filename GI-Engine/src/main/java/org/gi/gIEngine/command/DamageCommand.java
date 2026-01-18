@@ -106,8 +106,13 @@ public class DamageCommand {
             }
         }
 
-        PlayerStatHolder target = statManager.getOrLoad(targetPlayer);
-        PlayerStatHolder attackerHolder = statManager.getOrLoad(attacker);
+        PlayerStatHolder target = statManager.getHolder(targetPlayer).orElse(null);
+        PlayerStatHolder attackerHolder = statManager.getHolder(attacker).orElse(null);
+
+        if (target == null || attackerHolder == null) {
+            attacker.sendMessage(ChatColor.RED + "플레이어 데이터 로딩 중입니다. 잠시 후 다시 시도해주세요.");
+            return;
+        }
 
         IDamageSource source = DamageSourceBuilder.create()
                 .attacker(attackerHolder)
@@ -154,7 +159,11 @@ public class DamageCommand {
             }
         }
 
-        PlayerStatHolder holder = statManager.getOrLoad(player);
+        PlayerStatHolder holder = statManager.getHolder(player).orElse(null);
+        if (holder == null) {
+            player.sendMessage(ChatColor.RED + "데이터 로딩 중입니다. 잠시 후 다시 시도해주세요.");
+            return;
+        }
 
         IDamageSource source = DamageSourceBuilder.create()
                 .attacker(null)
@@ -236,7 +245,11 @@ public class DamageCommand {
      * 데미지 관련 스탯 정보
      */
     private void handleInfo(Player player) {
-        PlayerStatHolder holder = statManager.getOrLoad(player);
+        PlayerStatHolder holder = statManager.getHolder(player).orElse(null);
+        if (holder == null) {
+            player.sendMessage(ChatColor.RED + "데이터 로딩 중입니다. 잠시 후 다시 시도해주세요.");
+            return;
+        }
 
         player.sendMessage(ChatColor.GOLD + "===== " + player.getName() + " 전투 스탯 =====");
 

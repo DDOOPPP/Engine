@@ -3,7 +3,6 @@ package org.gi.storage;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.gi.Result;
-
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.logging.Logger;
@@ -11,10 +10,9 @@ import java.util.logging.Logger;
 public class MySQLStorage extends AbstractStorage{
     private MySQLSetting setting;
     private HikariDataSource dataSource = null;
-    private Connection connection;
 
     public MySQLStorage(Logger logger, MySQLSetting setting) {
-        super(logger);
+        super(logger,setting.getMaximumPoolSize());
         this.setting = setting;
     }
 
@@ -22,18 +20,15 @@ public class MySQLStorage extends AbstractStorage{
     public Result initialize(){
         if (setting == null){
             logger.severe("database setting is null");
-            logger.severe("check config.yml File");
-            return null;
+            return Result.Error("Database setting is null");
         }
-        HikariConfig config = new HikariConfig();
 
+        HikariConfig config = new HikariConfig();
         config.setJdbcUrl(setting.getURL());
         config.setUsername(setting.getUser());
         config.setPassword(setting.getPassword());
-
         config.setMaximumPoolSize(setting.getMaximumPoolSize());
         config.setMinimumIdle(setting.getMaximumPoolSize());
-
         config.setValidationTimeout(setting.getValidationTimeout());
         config.setKeepaliveTime(setting.getKeepAliveTimeout());
         config.setIdleTimeout(setting.getIdleTimeout());
@@ -41,15 +36,14 @@ public class MySQLStorage extends AbstractStorage{
         config.setConnectionTimeout(setting.getConnectionTimeout());
         config.setPoolName("GI-Engine-Pool");
 
-        dataSource = new HikariDataSource(config);
         try {
-            createTables();
-            logger.info("MySQLStorage initialized successfully");
-            return Result.SUCCESS;
-        } catch (SQLException e) {
-            logger.severe("Failed to initialize MySQLStorage: " + e.getMessage());
+            dataSource = new HikariDataSource(config);
+        } catch (Exception e) {
+            logger.severe("Failed to create MySQL connection pool: " + e.getMessage());
             return Result.Exception(e);
         }
+
+        return super.initialize();
     }
 
     @Override
@@ -103,13 +97,11 @@ public class MySQLStorage extends AbstractStorage{
 
     @Override
     public void shutdown() {
-        try{
-            if (connection != null && !connection.isClosed()){
-                connection.close();
-                dataSource.close();
-            }
-        } catch (SQLException e) {
-            logger.warning("Error closing connection: " + e.getMessage());
+        super.shutdown();
+
+        if (dataSource != null && !dataSource.isClosed()) {
+            dataSource.close();
+            logger.info("MySQL connection pool closed");
         }
     }
     @Override

@@ -33,9 +33,19 @@ public class DamageCalculator implements IDamageCalculator {
         DamageResult.Builder result = DamageResult.builder().source(source).target(target);
 
         IStatHolder attacker = source.getAttacker();
+        double baseDamage = source.getBaseDamage();
+        // 1. 공격력 체크
+        if (attacker != null) {
+            String attackStatId = source.getDamageType() == DamageType.MAGICAL
+                    ? MAGIC_POWER
+                    : ATTACK_POWER;
 
-        // 1. 회피 체크
-        if (source.canEvade() && attacker != null) {
+            double attackerPower = attacker.getStat(attackStatId);
+            baseDamage += attackerPower * source.getSkillScaling();
+        }
+
+        // 2. 회피 체크
+        if (source.canEvade() && attacker != null && target != null) {
             double accuracy = attacker.getStat(ACCURACY);
             double evasion = target.getStat(EVASION);
 
@@ -43,25 +53,15 @@ public class DamageCalculator implements IDamageCalculator {
                 return result
                         .evaded(true)
                         .finalDamage(0)
-                        .rawDamage(0)
+                        .rawDamage(baseDamage)
                         .resultType(IDamageResult.ResultType.EVADED)
                         .build();
             }
         }
-        // 2. 기본 데미지 계산
-        double rawDamage = source.getBaseDamage();
 
-        if (attacker != null){
-            String attackStatId = source.getDamageType() == DamageType.MAGICAL
-                    ? MAGIC_POWER
-                    : ATTACK_POWER;
-
-            double attackerPower = attacker.getStat(attackStatId);
-            rawDamage += attackerPower * source.getSkillScaling();
-        }
-        result.rawDamage(rawDamage);
-
+        // 3. 크리티컬
         boolean isCritical = false;
+        double damageAfterCritical = baseDamage;
 
         if (source.canCritical() && attacker != null) {
             double criticalChance = attacker.getStat(CRITICAL_CHANCE);
@@ -69,21 +69,22 @@ public class DamageCalculator implements IDamageCalculator {
             if (rollCritical(criticalChance)) {
                 isCritical = true;
                 double criticalDamage = attacker.getStat(CRITICAL_DAMAGE);
-                rawDamage *= criticalDamage;
+                damageAfterCritical = baseDamage * criticalDamage;
             }
         }
 
+        result.rawDamage(damageAfterCritical);  // 크리티컬 적용 후 저장
         result.critical(isCritical);
 
         // 4. 방어력 적용
-        double defense = 0;
-        double penetration = 0;
+        double damageAfterDefense = damageAfterCritical;
         double mitigatedDamage = 0;
 
-        if (source.getDamageType().isDefensible()) {
+        if (source.getDamageType().isDefensible() && target != null) {
             String defenseStatId = source.getDamageType().getDefenseStatId();
-            defense = target.getStat(defenseStatId);
+            double defense = target.getStat(defenseStatId);
 
+            double penetration = 0;
             if (attacker != null) {
                 String penStatId = source.getDamageType() == DamageType.MAGICAL
                         ? MAGIC_PENETRATION
@@ -91,9 +92,8 @@ public class DamageCalculator implements IDamageCalculator {
                 penetration = attacker.getStat(penStatId);
             }
 
-            double beforeMitigation = rawDamage;
-            rawDamage = calculateMitigation(rawDamage, defense, penetration);
-            mitigatedDamage = beforeMitigation - rawDamage;
+            damageAfterDefense = calculateMitigation(damageAfterCritical, defense, penetration);
+            mitigatedDamage = damageAfterCritical - damageAfterDefense;
         }
 
         result.mitigatedDamage(mitigatedDamage);
@@ -101,15 +101,16 @@ public class DamageCalculator implements IDamageCalculator {
         // 5. 블록 체크
         boolean isBlocked = false;
         double blockedDamage = 0;
+        double damageAfterBlock = damageAfterDefense;
 
-        if (source.canBlock()) {
+        if (source.canBlock() && target != null) {
             double blockChance = target.getStat(BLOCK_CHANCE);
 
             if (rollBlock(blockChance)) {
                 isBlocked = true;
                 double blockAmount = target.getStat(BLOCK_AMOUNT);
-                blockedDamage = Math.min(rawDamage, blockAmount);
-                rawDamage -= blockedDamage;
+                blockedDamage = Math.min(damageAfterDefense, blockAmount);
+                damageAfterBlock = damageAfterDefense - blockedDamage;
             }
         }
 
@@ -117,7 +118,7 @@ public class DamageCalculator implements IDamageCalculator {
         result.blockedDamage(blockedDamage);
 
         // 6. 최종 데미지
-        double finalDamage = Math.max(0, rawDamage);
+        double finalDamage = Math.max(0, damageAfterBlock);
         result.finalDamage(finalDamage);
 
         // 결과 타입 결정

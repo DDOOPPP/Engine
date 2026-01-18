@@ -8,6 +8,7 @@ public final class EngineAPI {
 
     private final IStatRegistry statRegistry;
     private final IDamageCalculator damageCalculator;
+    private static final Object lock = new Object();
 
     private EngineAPI(IStatRegistry statRegistry, IDamageCalculator damageCalculator){
         this.statRegistry = statRegistry;
@@ -15,11 +16,13 @@ public final class EngineAPI {
     }
 
     public static Result initialize(IStatRegistry statRegistry, IDamageCalculator damageCalculator){
-        if (instance != null){
-            return Result.Error("EngineAPI is already initialized");
+        synchronized (lock) {
+            if (instance != null){
+                return Result.Error("EngineAPI is already initialized");
+            }
+            instance = new EngineAPI(statRegistry,damageCalculator);
+            return Result.SUCCESS;
         }
-        instance = new EngineAPI(statRegistry,damageCalculator);
-        return Result.SUCCESS;
     }
 
     public static EngineAPI getAPI(){

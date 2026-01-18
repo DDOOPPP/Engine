@@ -7,15 +7,17 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
 public class SQLiteStorage extends AbstractStorage {
     private final File dataFolder;
     private final String fileName;
     private Connection connection;  // SQLite는 단일 커넥션 유지
+    private final Object connectionLock = new Object();
 
     public SQLiteStorage(Logger logger, File dataFolder, String fileName) {
-        super(logger);
+        super(logger,1);
         this.dataFolder = dataFolder;
         this.fileName = fileName;
     }
@@ -83,11 +85,13 @@ public class SQLiteStorage extends AbstractStorage {
      */
     @Override
     public Connection getConnection() throws SQLException {
-        if (connection == null || connection.isClosed()) {
-            connection = createConnection();
-            logger.info("SQLite connection recreated");
+        synchronized (connectionLock) {
+            if (connection == null || connection.isClosed()) {
+                connection = createConnection();
+                logger.info("SQLite connection recreated");
+            }
+            return connection;
         }
-        return connection;
     }
 
     @Override

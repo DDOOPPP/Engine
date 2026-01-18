@@ -99,8 +99,6 @@ public final class GIEngine extends JavaPlugin {
         getLogger().info("GI-Engine disabled!");
     }
 
-
-
     private IPlayerDataStorage initializeStorage(){
         String typeStr = config.getString("storage.type").toUpperCase();
 
@@ -110,7 +108,7 @@ public final class GIEngine extends JavaPlugin {
             type = StorageType.valueOf(typeStr);
         } catch (IllegalArgumentException e) {
             getLogger().warning("Unknown storage type: " + typeStr + ". Using SQLITE.");
-            type = StorageType.MYSQL;
+            type = SQLITE;
         }
 
         return switch (type){
@@ -125,6 +123,11 @@ public final class GIEngine extends JavaPlugin {
             }
             case MYSQL -> {
                 ConfigurationSection section = config.getSection("storage.mysql");
+
+                if (section == null) {
+                    getLogger().severe("MySQL configuration section not found! Falling back to SQLite.");
+                    yield new SQLiteStorage(getLogger(), getDataFolder(), "player_data.db");
+                }
 
                 String host = section.getString("host");
                 int port = section.getInt("port");

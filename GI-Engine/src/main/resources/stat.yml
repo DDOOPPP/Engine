@@ -155,13 +155,14 @@ stats:
     min-value: 0
     max-value: 0.5
     percentage-based: true
+
   accuracy:
     display-name: "명중률"
     descriptions:
       - "공격 명중 확률 (1.0 = 100%)"
     category: OFFENSIVE
     scaling-type: DECIMAL
-    default-value: 1.0
+    default-value: 1.0 #수정X
     min-value: 0
     max-value: 2.0
     percentage-based: true

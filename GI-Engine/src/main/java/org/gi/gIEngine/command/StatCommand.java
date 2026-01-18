@@ -54,7 +54,11 @@ public class StatCommand {
             return true;
         }
 
-        PlayerStatHolder holder = statManager.getOrLoad(player);
+        PlayerStatHolder holder = statManager.getHolder(player).orElse(null);
+        if (holder == null) {
+            player.sendMessage(ChatColor.RED + "데이터 로딩 중입니다. 잠시 후 다시 시도해주세요.");
+            return true;
+        }
 
         if (args.length == 0) {
             showAllStats(player, holder);

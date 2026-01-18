@@ -15,10 +15,12 @@ public class StatInstance implements IStatInstance{
     private double baseValue;
 
     private volatile boolean cacheValid = false;
+    private double cacheTotalMultiply;
     private double cacheFinalValue;
     private double cacheTotalFlat;
     private double cacheTotalPercent;
 
+    private final Object cacheLock = new Object();
     public StatInstance(IStat stat, IStatHolder holder) {
         this.stat = Objects.requireNonNull(stat, "Stat cannot be null");
         this.holder = Objects.requireNonNull(holder, "Holder cannot be null");
@@ -82,6 +84,14 @@ public class StatInstance implements IStatInstance{
             recalculate();
         }
         return cacheTotalPercent;
+    }
+
+    @Override
+    public double getTotalMultiply() {
+        if(!cacheValid){
+            recalculate();
+        }
+        return cacheTotalMultiply;
     }
 
     @Override
@@ -197,11 +207,6 @@ public class StatInstance implements IStatInstance{
         return Collections.unmodifiableCollection(modifiers.values());
     }
 
-    //미사용
-    @Override
-    public double getTotalMultiply() {
-        return 0;
-    }
     @Override
     public void inValidateCache() {
         cacheValid = false;
@@ -217,30 +222,39 @@ public class StatInstance implements IStatInstance{
      * 공식: (Base + Σ FLAT) × (1 + Σ PERCENT)
      */
     private void recalculate(){
-        Collection<IStatModifier> activeModifiers = getActiveModifiers();
+        synchronized (cacheLock) {
+            if (cacheValid) return;  // Double-check
 
-        // 스택 처리된 Modifier 가져옴
-        List<IStatModifier> processedModifiers = processStacks(activeModifiers);
+            Collection<IStatModifier> activeModifiers = getActiveModifiers();
+            List<IStatModifier> processedModifiers = processStacks(activeModifiers);
 
-        // FLAT 타입 계산
-        cacheTotalFlat = processedModifiers.stream()
-                .filter(m -> m.getType() == ModifierType.FLAT)
-                .sorted(Comparator.comparingInt(IStatModifier::getPriority))
-                .mapToDouble(IStatModifier::getValue).sum();
+            // FLAT
+            cacheTotalFlat = processedModifiers.stream()
+                    .filter(m -> m.getType() == ModifierType.FLAT)
+                    .mapToDouble(IStatModifier::getValue).sum();
 
-        //PERCENT 타입 계산
-        cacheTotalPercent = processedModifiers.stream()
-                .filter(m-> m.getType() == ModifierType.PERCENT)
-                .sorted(Comparator.comparingInt(IStatModifier::getPriority))
-                .mapToDouble(IStatModifier::getValue).sum();
+            // PERCENT
+            cacheTotalPercent = processedModifiers.stream()
+                    .filter(m -> m.getType() == ModifierType.PERCENT)
+                    .mapToDouble(IStatModifier::getValue).sum();
 
-        double finalValue = (baseValue + cacheTotalFlat) * (1 + cacheTotalPercent);
+            // MULTIPLY 추가
+            cacheTotalMultiply = processedModifiers.stream()
+                    .filter(m -> m.getType() == ModifierType.MULTIPLY)
+                    .mapToDouble(IStatModifier::getValue)
+                    .reduce(1.0, (a, b) -> a * b);  // 곱연산
 
-        finalValue = Math.max(stat.getMinValue(), finalValue);
-        finalValue = Math.min(stat.getMaxValue(), finalValue);
+            // 공식: (Base + FLAT) × (1 + PERCENT) × MULTIPLY
+            double finalValue = (baseValue + cacheTotalFlat)
+                    * (1 + cacheTotalPercent)
+                    * cacheTotalMultiply;
 
-        cacheFinalValue = finalValue;
-        cacheValid = true;
+            finalValue = Math.max(stat.getMinValue(), finalValue);
+            finalValue = Math.min(stat.getMaxValue(), finalValue);
+
+            cacheFinalValue = finalValue;
+            cacheValid = true;
+        }
     }
 
 
@@ -275,7 +289,9 @@ public class StatInstance implements IStatInstance{
                 if (maxStacks > 0 && sourceModifiers.size() > maxStacks){
                     //최대 스택제한 = 값이 높은 순으로 maxStacks갯수만
                     sourceModifiers.stream()
-                            .sorted(Comparator.comparingDouble(m -> Math.abs(m.getValue())))
+                            .sorted(Comparator.comparingDouble(
+                                    (IStatModifier m) -> Math.abs(m.getValue())
+                            ).reversed())
                             .limit(maxStacks)
                             .forEach(result::add);
                 }else{ //제한 없음
